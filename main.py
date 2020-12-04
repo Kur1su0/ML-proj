@@ -11,19 +11,32 @@ import torch.optim as optim
 from torchvision import datasets, transforms
 from torch.optim.lr_scheduler import StepLR
 import os
+
+
+import matplotlib.pyplot as plt 
+from utils import mnist_loader
+import numpy as np
 #from torchviz import make_dot
 #import torchsummary
 
+os.environ["CUDA_DEVICE_ORDER"]="PCI_BUS_ID"
+os.environ["CUDA_VISIBLE_DEVICES"]="1"     
 
 class Net(nn.Module):
     def __init__(self):
         super(Net, self).__init__()
-        self.conv1 = nn.Conv2d(1, 32, 3, 1)
-        self.conv2 = nn.Conv2d(32, 64, 3, 1)
+       
+        
+
+        
+        self.conv1 = nn.Conv2d(1, 64, 3, 1)
+
+        self.conv2 = nn.Conv2d(64, 12, 3, 1)
         self.dropout1 = nn.Dropout(0.25)
         self.dropout2 = nn.Dropout(0.5)
         self.fc1 = nn.Linear(9216, 128)
         self.fc2 = nn.Linear(128, 10)
+        
 
     def forward(self, x):
         x = self.conv1(x)
@@ -113,9 +126,10 @@ def main():
         print("using GPU!")
     if use_cuda:
         #os.environ["CUDA_VISIBLE_DEVICES"] = '0,1,2,3'
-        cuda_kwargs = {'num_workers': 1,
-                       'pin_memory': True,
-                       'shuffle': True}
+        cuda_kwargs = { #'batch_size': 16,
+                        'num_workers': 1,
+                        'pin_memory': True,
+                        'shuffle': True}
         train_kwargs.update(cuda_kwargs)
         test_kwargs.update(cuda_kwargs)
 
@@ -123,12 +137,61 @@ def main():
         transforms.ToTensor(),
         transforms.Normalize((0.1307,), (0.3081,))
         ])
-    dataset1 = datasets.MNIST('../data', train=True, download=True,
-                       transform=transform)
-    dataset2 = datasets.MNIST('../data', train=False,
-                       transform=transform)
-    train_loader = torch.utils.data.DataLoader(dataset1,**train_kwargs)
-    test_loader = torch.utils.data.DataLoader(dataset2, **test_kwargs)
+    
+    
+
+    training_data, validation_data, test_data = mnist_loader.load_data_wrapper()
+
+    #dataset1 = datasets.MNIST('../data', train=True, download=True,
+    #                   transform=transform)
+    #dataset2 = datasets.MNIST('../data', train=False,
+    #                   transform=transform)
+
+    training_data = list(training_data)
+
+    test_data = list(test_data)
+    train_loader = torch.utils.data.DataLoader(training_data,**train_kwargs)
+    test_loader = torch.utils.data.DataLoader(test_data, **test_kwargs)
+
+
+    print("train", len(training_data))
+    print("test",len(test_data))
+
+    
+    examples = enumerate(training_data)
+    batch_idx, (example_data, example_targets) = next(examples)
+    
+    #print(example_targets)
+    #print(example_data)
+    print(example_data.shape)
+    print(example_targets.shape)
+    
+    
+
+    """
+    fig = plt.figure()
+    # plot the images in a grid
+    rows = 4
+    cols = 4
+    indices = np.random.choice(np.arange(len(example_data)), rows * cols)
+    plt.figure(figsize=(2 * cols, 2 * rows))
+    
+    for i in range(rows * cols):
+        index = indices[i]
+    
+        ax = plt.subplot(rows, cols, i + 1)
+        plt.show(example_data[index][0].reshape(28,28), cmap="gray")
+        plt.title("label = %d" % example_targets[index])
+        ax.get_xaxis().set_visible(False)
+        ax.get_yaxis().set_visible(False)
+    
+    
+    plt.savefig('example.png')
+    plt.close(fig)
+    #plt.show()
+    """
+
+    
 
     model = Net().to(device)
     optimizer = optim.Adadelta(model.parameters(), lr=args.lr)
@@ -136,6 +199,7 @@ def main():
     scheduler = StepLR(optimizer, step_size=1, gamma=args.gamma)
     print(model)
 
+    
     #print(summary(model))
     #exit(1)
     #x = Variable(torch.randn(1,32))
